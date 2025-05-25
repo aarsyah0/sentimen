@@ -1,117 +1,114 @@
-<!-- resources/views/admin/dashboard.blade.php -->
+{{-- resources/views/admin/dashboard.blade.php --}}
 @extends('admin.layouts.app')
 @section('title', 'Dashboard')
 
 @section('content')
-    <div class="space-y-6">
-        <!-- Welcome Card -->
-        <div
-            class="bg-gradient-to-r from-blue-500 to-blue-700 text-white p-6 rounded-lg shadow-lg transform hover:scale-105 transition">
-            <h2 class="text-2xl font-bold">Selamat datang, {{ auth()->user()->name }}! 👋</h2>
-            <p class="mt-2 opacity-90">Ringkasan aktivitas dan statistik aplikasi Anda:</p>
-        </div>
-
-        <!-- Statistic Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <!-- Total Users -->
-            <div class="bg-white rounded-lg shadow-xl p-5 flex items-center space-x-4 transform hover:scale-105 transition">
-                <div class="p-3 bg-blue-100 rounded-full">
-                    <!-- Icon Users -->
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87M20 7a4 4 0 11-8 0 4 4 0 018 0zM12 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="text-2xl font-semibold">{{ $userCount }}</h3>
-                    <p class="text-sm text-gray-500">Total Users</p>
-                </div>
+    <div class="container mx-auto p-6 space-y-6">
+        {{-- Summary Cards --}}
+        <div class="grid grid-cols-3 gap-4">
+            <div class="bg-white shadow rounded-lg p-4">
+                <h3 class="text-lg font-medium">Total Users</h3>
+                <p class="text-2xl font-bold">{{ $userCount }}</p>
             </div>
-
-            <!-- Uploaded CSV Files -->
-            <div class="bg-white rounded-lg shadow-xl p-5 flex items-center space-x-4 transform hover:scale-105 transition">
-                <div class="p-3 bg-blue-100 rounded-full">
-                    <!-- Icon Upload -->
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12v8m0-8l-3 3m3-3l3 3M12 4v8" />
-                    </svg>
-                </div>
-                <div>
-                    <h3 class="text-2xl font-semibold">{{ $csvCount }}</h3>
-                    <p class="text-sm text-gray-500">CSV Files Uploaded</p>
-                </div>
+            <div class="bg-white shadow rounded-lg p-4">
+                <h3 class="text-lg font-medium">Total CSV Files</h3>
+                <p class="text-2xl font-bold">{{ $csvCount }}</p>
             </div>
-
-            <!-- Data Labeling Trend -->
-            <div class="bg-white rounded-lg shadow-xl p-5 transform hover:scale-105 transition">
-                <h3 class="text-lg font-medium mb-4">Tren Data Labeling</h3>
-                <canvas id="dataLabelingChart" class="w-full h-32"></canvas>
-            </div>
-
-            <!-- Sentiment Distribution Pie -->
-            <div class="bg-white rounded-lg shadow-xl p-5 transform hover:scale-105 transition">
-                <h3 class="text-lg font-medium mb-4">Distribusi Sentimen</h3>
-                <canvas id="sentimentPieChart" class="w-full h-32"></canvas>
-            </div>
-
-            <!-- Quick Actions -->
-            <div
-                class="bg-white rounded-lg shadow-xl p-5 flex flex-col justify-between transform hover:scale-105 transition">
-                <h3 class="text-lg font-medium mb-4">Quick Actions</h3>
-                <div class="space-y-3">
-                    <a href="{{ route('upload.form') }}"
-                        class="block text-center py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Upload
-                        CSV</a>
-                    <a href="{{ route('viz.index') }}"
-                        class="block text-center py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition">Lihat
-                        Visualisasi</a>
-                </div>
+            <div class="bg-white shadow rounded-lg p-4">
+                <h3 class="text-lg font-medium">Distribusi Sentimen</h3>
+                <canvas id="pieChart"></canvas>
             </div>
         </div>
+
+        {{-- Line Chart --}}
+        <div class="bg-white shadow rounded-lg p-4">
+            <h3 class="text-lg font-medium mb-2">Akurasi Harian</h3>
+            <canvas id="lineChart"></canvas>
+        </div>
+
+        {{-- Confusion Matrix --}}
+        <div class="bg-white shadow rounded-lg p-4 overflow-auto">
+            <h3 class="text-lg font-medium mb-2">Confusion Matrix</h3>
+            <table class="min-w-full border-collapse">
+                <thead>
+                    <tr class="bg-gray-100">
+                        @foreach ($cmHeader as $col)
+                            <th class="border px-4 py-2">{{ ucfirst($col) }}</th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($cmRows as $row)
+                        <tr>
+                            @foreach ($row as $cell)
+                                <td class="border px-4 py-2 text-center">{{ $cell }}</td>
+                            @endforeach
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+
+        {{-- Evaluation Metrics --}}
+        {{-- Evaluation Metrics --}}
+
+        <div class="bg-white shadow rounded-lg p-4 overflow-auto">
+            <h3 class="text-lg font-medium mb-2">Evaluation Metrics (Full)</h3>
+
+            <table class="min-w-full border-collapse">
+                <thead>
+                    <tr class="bg-gray-100">
+                        @foreach (array_keys($evalMetrics[0] ?? []) as $col)
+                            <th class="border px-4 py-2">{{ ucfirst($col) }}</th>
+                        @endforeach
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($evalMetrics as $row)
+                        <tr>
+                            @foreach ($row as $cell)
+                                <td class="border px-4 py-2 text-center">{{ $cell }}</td>
+                            @endforeach
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+
+        </div>
+
+    </div>
+    <div class="flex justify-end mb-4">
+        <a href="{{ route('viz.index') }}" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow">
+            Lihat Visualisasi Publik
+        </a>
     </div>
 @endsection
 
 @push('scripts')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Line Chart: Data Labeling
-        new Chart(document.getElementById('dataLabelingChart'), {
-            type: 'line',
+        // Pie Chart Sentiment Distribution
+        new Chart(document.getElementById('pieChart'), {
+            type: 'pie',
             data: {
-                labels: Object.keys(@json($labelCounts)),
+                labels: {!! json_encode(array_keys($distCounts)) !!},
                 datasets: [{
-                    label: 'Jumlah Data per Sentiment',
-                    data: Object.values(@json($labelCounts)),
-                    fill: false,
-                    tension: 0.4,
-                    borderWidth: 2
+                    data: {!! json_encode(array_values($distCounts)) !!}
                 }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
-                }
             }
         });
 
-        // Pie Chart: Sentiment Distribution
-        new Chart(document.getElementById('sentimentPieChart'), {
-            type: 'pie',
+        // Line Chart Akurasi Harian
+        new Chart(document.getElementById('lineChart'), {
+            type: 'line',
             data: {
-                labels: @json($labelsSent),
+                labels: {!! json_encode($dates) !!},
                 datasets: [{
-                    data: @json($dataSent),
-                    borderWidth: 1
+                    label: 'Akurasi',
+                    data: {!! json_encode($accuracies) !!},
+                    fill: false,
+                    tension: 0.1
                 }]
-            },
-            options: {
-                responsive: true
             }
         });
     </script>

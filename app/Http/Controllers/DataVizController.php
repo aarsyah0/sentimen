@@ -4,199 +4,242 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\RedirectResponse;
 use League\Csv\Reader;
 use App\Models\User;
 
 class DataVizController extends Controller
 {
     /**
-     * Tampilkan dashboard/admin menu
+     * Halaman Dashboard Admin: hitung jumlah user & CSV
      */
-    public function dashboard(Request $request)
-    {
-        $user = auth()->user();
+public function dashboard(Request $request)
+{
+    $userCount = User::count();
+    $allFiles  = Storage::disk('local')->files();
+    $csvFiles  = array_filter($allFiles, fn($f) => str_ends_with($f, '.csv'));
+    $csvCount  = count($csvFiles);
 
-        // Hitung total user
-        $userCount = User::count();
-
-        // Ambil semua file CSV di storage/app secara dinamis
-        $allFiles = Storage::disk('local')->files();
-        $csvFiles = array_filter($allFiles, fn($file) => str_ends_with($file, '.csv'));
-        $csvCount = count($csvFiles);
-
-        // Load data_labeling untuk line chart
-        $records = $this->loadCsv('data_labeling', $request);
-        $labelCounts = is_array($records)
-            ? array_count_values(array_column($records, 'sentiment'))
-            : [];
-
-        // Load sentiment distribution for pie chart
-        $sentDist = $this->loadCsv('sentiment_distribution', $request);
-        $labelsSent = is_array($sentDist) ? array_column($sentDist, 'true_label') : [];
-        $dataSent = is_array($sentDist) ? array_column($sentDist, 'count') : [];
-
-        // Return view sesuai role dengan data dinamis
-        return $user->role === 'admin'
-            ? view('admin.dashboard', compact('userCount', 'csvCount', 'labelCounts', 'labelsSent', 'dataSent'))
-            : view('user.dashboard', compact('userCount', 'csvCount', 'labelCounts', 'labelsSent', 'dataSent'));
+    // Load distribusi sentimen
+    $labelsData = $this->loadCsv('data_with_labels');
+    if ($labelsData instanceof RedirectResponse) {
+        return $labelsData; // redirect if file missing
     }
+    $labelsSent = array_column($labelsData, 'label_str');
+    $distCounts = array_count_values($labelsSent);
 
+    // Load confusion matrix
+    $cmRecords = $this->loadCsv('confusion_matrix');
+    if ($cmRecords instanceof RedirectResponse) {
+        return $cmRecords; // redirect if file missing
+    }
+    $reader = Reader::createFromPath(Storage::disk('local')->path('confusion_matrix.csv'), 'r');
+    $reader->setHeaderOffset(0);
+    $cmHeader = $reader->getHeader();
+    $cmRows = iterator_to_array($reader->getRecords());
+
+    // Load akurasi harian
+    $predRaw = $this->loadCsv('df_full_predictions');
+    if ($predRaw instanceof RedirectResponse) {
+        return $predRaw;
+    }
+    $byDate = [];
+    foreach ($predRaw as $row) {
+        $d = $row['tweet_date'];
+        $byDate[$d]['total'] = ($byDate[$d]['total'] ?? 0) + 1;
+        $byDate[$d]['correct'] = ($byDate[$d]['correct'] ?? 0)
+                               + (($row['label_name'] === $row['predicted_label']) ? 1 : 0);
+    }
+    uksort($byDate, fn($a, $b) => strtotime($a) <=> strtotime($b));
+    $dates = array_keys($byDate);
+    $accuracies = array_map(fn($g) => round($g['correct'] / $g['total'], 4), $byDate);
+
+    // Load Evaluation Metrics
+$evalRaw = $this->loadCsv('evaluation_metrics_full');
+$evalMetrics = array_filter($evalRaw, function ($row) {
+    return isset($row[''], $row['precision'], $row['recall'], $row['f1-score']) &&
+           $row[''] !== '' &&
+           is_numeric($row['precision']);
+});
+$evalMetrics = array_values($evalMetrics);
+
+
+    return view('admin.dashboard', compact(
+        'userCount', 'csvCount', 'distCounts', 'dates', 'accuracies', 'evalMetrics',
+        'cmHeader', 'cmRows'   // <-- add these here!
+    ));
+}
 
 
     /**
-     * Form upload CSV (admin only)
+     * Tampilkan form upload CSV
      */
     public function showUploadForm()
     {
         if (auth()->user()->role !== 'admin') {
-            abort(403, 'Unauthorized.');
+            abort(403);
         }
-
         return view('admin.upload_data');
     }
 
     /**
-     * Proses upload lima file CSV (admin only)
+     * Proses upload keempat file CSV
      */
     public function uploadData(Request $request)
     {
         if (auth()->user()->role !== 'admin') {
-            abort(403, 'Unauthorized.');
+            abort(403);
         }
 
         $fields = [
-            'sentiment_distribution',
             'confusion_matrix',
-            'evaluation_metrics',
-            'top_features',
-            'data_labeling',
+            'data_with_labels',
+            'df_full_predictions',
+            'evaluation_metrics_full',
         ];
-
-        // Validasi tiap file CSV
+        // Validasi tiap field
         $rules = [];
         foreach ($fields as $f) {
             $rules[$f] = 'required|file|mimes:csv,txt';
         }
         $request->validate($rules);
 
-        // Simpan file ke storage/app
-        foreach ($fields as $field) {
-            $file     = $request->file($field);
-            $filename = "{$field}.csv";
+        // Simpan
+        foreach ($fields as $f) {
+            $file     = $request->file($f);
+            $filename = "{$f}.csv";
             Storage::disk('local')->putFileAs('', $file, $filename);
         }
 
         return redirect()
             ->route('dashboard')
-            ->with('success', 'Semua file CSV berhasil di-upload.');
+            ->with('success', 'Keempat file CSV berhasil di-upload.');
     }
 
     /**
-     * Helper: load CSV records atau redirect jika tidak ada
+     * Helper: load CSV atau redirect ke upload
      */
-    protected function loadCsv(string $field, Request $request)
+    protected function loadCsv(string $name)
     {
-        $filename = "{$field}.csv";
-
+        $filename = "{$name}.csv";
         if (! Storage::disk('local')->exists($filename)) {
             return redirect()
-                ->route('upload.form')
-                ->with('error', "File “{$filename}” belum di-upload.");
+                ->route('admin.upload.form')
+                ->with('error', "File {$filename} belum di-upload.");
         }
-
         $path = Storage::disk('local')->path($filename);
         $csv  = Reader::createFromPath($path, 'r');
         $csv->setHeaderOffset(0);
-
         return iterator_to_array($csv->getRecords());
+        dd(Storage::exists('evaluation_metrics_full.csv'));
+
     }
 
     /**
-     * Tampilkan visualisasi publik
+     * Halaman visualisasi Sentiment Analysis
      */
-    public function index(Request $request)
-    {
-        // 1) Sentiment Distribution
-        $sent = $this->loadCsv('sentiment_distribution', $request);
-        if ($sent instanceof \Illuminate\Http\RedirectResponse) {
-            return $sent;
-        }
-        $labelsSent = array_column($sent, 'true_label');
-        $dataSent   = array_column($sent, 'count');
-
-        // 2) Confusion Matrix
-        $cmRecords = $this->loadCsv('confusion_matrix', $request);
-        if ($cmRecords instanceof \Illuminate\Http\RedirectResponse) {
-            return $cmRecords;
-        }
-        $reader = Reader::createFromPath(
-            Storage::disk('local')->path('confusion_matrix.csv'),
-            'r'
-        );
-        $reader->setHeaderOffset(0);
-        $headers      = $reader->getHeader();
-        $trueLabelKey = array_shift($headers);
-        $cmCols       = $headers;
-        $cmRows       = iterator_to_array($reader->getRecords());
-
-        // 3) Evaluation Metrics
-        $eval = $this->loadCsv('evaluation_metrics', $request);
-        if ($eval instanceof \Illuminate\Http\RedirectResponse) {
-            return $eval;
-        }
-        $classes   = array_column($eval, 'kelas');
-        $precision = array_column($eval, 'precision');
-        $recall    = array_column($eval, 'recall');
-        $f1        = array_column($eval, 'f1');
-
-        // 4) Top Features
-        $feats      = $this->loadCsv('top_features', $request);
-        if ($feats instanceof \Illuminate\Http\RedirectResponse) {
-            return $feats;
-        }
-        $featNames  = array_column($feats, 'feature');
-        $featScores = array_map('intval', array_column($feats, 'score'));
-
-        // 5) Word Cloud & Line Chart Data
-        $records = $this->loadCsv('data_labeling', $request);
-        if ($records instanceof \Illuminate\Http\RedirectResponse) {
-            return $records;
-        }
-
-        // Hitung jumlah record per sentiment untuk line chart
-        $labelCounts = array_count_values(array_column($records, 'sentiment'));
-
-        // Siapkan data word cloud
-        $texts = [];
-        foreach ($records as $r) {
-            $texts[$r['sentiment']][] = $r['text_without_stopwords'];
-        }
-        $wordLists = [];
-        foreach ($texts as $sent => $arr) {
-            $freq = [];
-            foreach ($arr as $line) {
-                foreach (preg_split('/\s+/', $line) as $w) {
-                    $w = strtolower(trim($w));
-                    if (strlen($w) < 2) continue;
-                    $freq[$w] = ($freq[$w] ?? 0) + 1;
-                }
-            }
-            arsort($freq);
-            $top = array_slice($freq, 0, 200, true);
-            $wordLists[$sent] = array_map(
-                fn($w, $c) => [$w, $c],
-                array_keys($top),
-                array_values($top)
-            );
-        }
-
-        return view('viz.index', compact(
-            'labelsSent','dataSent',
-            'cmRows','cmCols','trueLabelKey',
-            'classes','precision','recall','f1',
-            'featNames','featScores',
-            'wordLists',
-            'labelCounts' // variabel untuk line chart
-        ));
+public function index()
+{
+    $labelsData = $this->loadCsv('data_with_labels');
+    if ($labelsData instanceof RedirectResponse) {
+        return $labelsData;
     }
+
+    // --- Normalize label_str ke bahasa Inggris lowercase ---
+    foreach ($labelsData as &$row) {
+        $raw = strtolower($row['label_str']); // 'positif','negatif','netral'
+        if ($raw === 'positif')    $row['label_norm'] = 'positive';
+        elseif ($raw === 'negatif') $row['label_norm'] = 'negative';
+        elseif ($raw === 'netral')  $row['label_norm'] = 'neutral';
+        else                        $row['label_norm'] = 'neutral';
+    }
+    unset($row);
+
+    // Pie chart: gunakan 'label_norm'
+    $labelsSent = array_column($labelsData, 'label_norm');
+    $dataSent   = array_count_values($labelsSent);
+
+    // --- Overall word frequencies & top features ---
+    $textsAll    = array_filter(array_column($labelsData, 'clean_text'));
+    $combinedAll = implode(' ', $textsAll);
+    $wordsAll    = str_word_count(strtolower($combinedAll), 1);
+    $freqsAll    = array_count_values($wordsAll);
+    arsort($freqsAll);
+    $wordFrequencies = array_slice($freqsAll, 0, 100, true);
+    $topFeatures     = array_slice($freqsAll, 0, 10, true);
+
+    // --- Per‐label word frequencies & top features ---
+    $labelsList = ['positive','negative','neutral'];
+    $wordFrequenciesByLabel = [];
+    $topFeaturesByLabel     = [];
+
+    foreach ($labelsList as $lbl) {
+        $texts = array_column(
+            array_filter($labelsData, fn($row) => $row['label_norm'] === $lbl),
+            'clean_text'
+        );
+        $combined = implode(' ', $texts);
+        $words    = str_word_count(strtolower($combined), 1);
+        $freqs    = array_count_values($words);
+        arsort($freqs);
+
+        $wordFrequenciesByLabel[$lbl] = array_slice($freqs, 0, 100, true);
+        $topFeaturesByLabel[$lbl]     = array_slice($freqs, 0, 10, true);
+    }
+
+    // 2) Confusion Matrix
+    $cmRecords = $this->loadCsv('confusion_matrix');
+    if ($cmRecords instanceof RedirectResponse) {
+        return $cmRecords;
+    }
+    $reader       = Reader::createFromPath(Storage::disk('local')->path('confusion_matrix.csv'), 'r');
+    $reader->setHeaderOffset(0);
+    $headers      = $reader->getHeader();
+    $trueLabelKey = array_shift($headers);
+    $cmCols       = $headers;
+    $cmRows       = iterator_to_array($reader->getRecords());
+
+    // 3) Evaluation Metrics
+    $evalRaw = $this->loadCsv('evaluation_metrics_full');
+    if ($evalRaw instanceof RedirectResponse) {
+        return $evalRaw;
+    }
+    $evalFiltered = array_filter($evalRaw, function ($row) {
+        return isset($row[''], $row['precision'], $row['recall'], $row['f1-score'])
+            && $row[''] !== ''
+            && is_numeric($row['precision'])
+            && is_numeric($row['recall'])
+            && is_numeric($row['f1-score']);
+    });
+    $classes   = array_column($evalFiltered, '');
+    $precision = array_map('floatval', array_column($evalFiltered, 'precision'));
+    $recall    = array_map('floatval', array_column($evalFiltered, 'recall'));
+    $f1        = array_map('floatval', array_column($evalFiltered, 'f1-score'));
+
+    // 4) Akurasi Harian
+    $predRaw = $this->loadCsv('df_full_predictions');
+    if ($predRaw instanceof RedirectResponse) {
+        return $predRaw;
+    }
+    $byDate = [];
+    foreach ($predRaw as $row) {
+        $d = $row['tweet_date'];
+        $byDate[$d]['total']   = ($byDate[$d]['total'] ?? 0) + 1;
+        $byDate[$d]['correct'] = ($byDate[$d]['correct'] ?? 0)
+                               + (($row['label_name'] === $row['predicted_label']) ? 1 : 0);
+    }
+    uksort($byDate, fn($a, $b) => strtotime($a) <=> strtotime($b));
+    $dates = array_keys($byDate);
+    $accs  = array_map(fn($g) => round($g['correct'] / $g['total'], 4), $byDate);
+
+    // Return ke view dengan semua variabel
+    return view('viz.index', compact(
+        'dataSent',
+        'wordFrequencies', 'topFeatures',
+        'wordFrequenciesByLabel', 'topFeaturesByLabel',
+        'cmCols', 'cmRows', 'trueLabelKey',
+        'classes', 'precision', 'recall', 'f1',
+        'dates', 'accs'
+    ));
+}
 }
