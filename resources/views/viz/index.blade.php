@@ -19,7 +19,10 @@
         <div class="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <img src="/assets/pj.png" alt="Logo" class="h-10 w-10">
-                <span class="text-2xl font-bold text-white">Sentiment Dashboard</span>
+                <div>
+                    <span class="text-2xl font-bold text-white">Sentiment Dashboard</span><br>
+                    <span class="text-sm text-white">by : Oktaviarlen Setya W (E31221299)</span>
+                </div>
             </div>
             <a href="{{ route('login') }}"
                 class="px-4 py-2 bg-blue-200 text rounded-lg hover:bg-blue-400 transition">Login</a>
