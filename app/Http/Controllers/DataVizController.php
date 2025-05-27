@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\RedirectResponse;
 use League\Csv\Reader;
 use App\Models\User;
+use Carbon\Carbon;
 
 class DataVizController extends Controller
 {
@@ -17,58 +18,88 @@ public function dashboard(Request $request)
 {
     $userCount = User::count();
     $allFiles  = Storage::disk('local')->files();
-    $csvFiles  = array_filter($allFiles, fn($f) => str_ends_with($f, '.csv'));
-    $csvCount  = count($csvFiles);
+    $csvCount  = count(array_filter($allFiles, fn($f) => str_ends_with($f, '.csv')));
 
-    // Load distribusi sentimen
+    // 1) Distribusi Sentimen
     $labelsData = $this->loadCsv('data_with_labels');
     if ($labelsData instanceof RedirectResponse) {
-        return $labelsData; // redirect if file missing
+        return $labelsData;
     }
-    $labelsSent = array_column($labelsData, 'label_str');
-    $distCounts = array_count_values($labelsSent);
+    $distCounts = array_count_values(array_column($labelsData, 'label_str'));
 
-    // Load confusion matrix
-    $cmRecords = $this->loadCsv('confusion_matrix');
-    if ($cmRecords instanceof RedirectResponse) {
-        return $cmRecords; // redirect if file missing
-    }
-    $reader = Reader::createFromPath(Storage::disk('local')->path('confusion_matrix.csv'), 'r');
+    // 2) Confusion Matrix
+    $cmCsv    = Storage::disk('local')->path('confusion_matrix.csv');
+    $reader   = Reader::createFromPath($cmCsv, 'r');
     $reader->setHeaderOffset(0);
     $cmHeader = $reader->getHeader();
-    $cmRows = iterator_to_array($reader->getRecords());
+    $cmRows   = iterator_to_array($reader->getRecords());
 
-    // Load akurasi harian
+    // 3) Akurasi Harian
     $predRaw = $this->loadCsv('df_full_predictions');
     if ($predRaw instanceof RedirectResponse) {
         return $predRaw;
     }
     $byDate = [];
     foreach ($predRaw as $row) {
-        $d = $row['tweet_date'];
-        $byDate[$d]['total'] = ($byDate[$d]['total'] ?? 0) + 1;
+        if (empty($row['tweet_date'])) {
+            continue;
+        }
+        // parse tanggal dari format M/D/YYYY ke Y-m-d
+        try {
+            $d = Carbon::createFromFormat('n/j/Y', $row['tweet_date'])
+                       ->format('Y-m-d');
+        } catch (\Exception $e) {
+            // jika gagal, lewati baris ini
+            continue;
+        }
+        $true = $row['label'] ?? null;
+        $pred = $row['predicted_label'] ?? null;
+
+        $byDate[$d]['total']   = ($byDate[$d]['total'] ?? 0) + 1;
         $byDate[$d]['correct'] = ($byDate[$d]['correct'] ?? 0)
-                               + (($row['label_name'] === $row['predicted_label']) ? 1 : 0);
+                               + (($true === $pred) ? 1 : 0);
     }
-    uksort($byDate, fn($a, $b) => strtotime($a) <=> strtotime($b));
-    $dates = array_keys($byDate);
+    ksort($byDate); // sudah dalam format Y-m-d, ksort cukup
+    $dates      = array_keys($byDate);
     $accuracies = array_map(fn($g) => round($g['correct'] / $g['total'], 4), $byDate);
 
-    // Load Evaluation Metrics
-$evalRaw = $this->loadCsv('evaluation_metrics_full');
-$evalMetrics = array_filter($evalRaw, function ($row) {
-    return isset($row[''], $row['precision'], $row['recall'], $row['f1-score']) &&
-           $row[''] !== '' &&
-           is_numeric($row['precision']);
-});
-$evalMetrics = array_values($evalMetrics);
-
+    // 4) Evaluation Metrics
+    $evalRaw = $this->loadCsv('evaluation_metrics_full');
+    if ($evalRaw instanceof RedirectResponse) {
+        return $evalRaw;
+    }
+    $evalMetrics = [];
+    foreach ($evalRaw as $row) {
+        // kolom label ada di 'Unnamed: 0'
+        if (
+            isset($row[''], $row['precision'], $row['recall'], $row['f1-score'])
+            && $row[''] !== ''
+            && is_numeric($row['precision'])
+        ) {
+            $evalMetrics[] = [
+                'label'     => $row[''],
+                'precision' => (float) $row['precision'],
+                'recall'    => (float) $row['recall'],
+                // rename key jadi tanpa hyphen supaya mudah di Blade
+                'f1_score'  => (float) $row['f1-score'],
+                'support'   => isset($row['support']) ? (int) $row['support'] : null,
+            ];
+        }
+    }
 
     return view('admin.dashboard', compact(
-        'userCount', 'csvCount', 'distCounts', 'dates', 'accuracies', 'evalMetrics',
-        'cmHeader', 'cmRows'   // <-- add these here!
+        'userCount',
+        'csvCount',
+        'distCounts',
+        'cmHeader',
+        'cmRows',
+        'dates',
+        'accuracies',
+        'evalMetrics'
     ));
 }
+
+
 
 
     /**
@@ -140,46 +171,46 @@ $evalMetrics = array_values($evalMetrics);
      */
 public function index()
 {
+    // 1) Data Sentimen
     $labelsData = $this->loadCsv('data_with_labels');
     if ($labelsData instanceof RedirectResponse) {
         return $labelsData;
     }
 
-    // --- Normalize label_str ke bahasa Inggris lowercase ---
+    // Normalize ke bahasa Inggris lowercase
     foreach ($labelsData as &$row) {
-        $raw = strtolower($row['label_str']); // 'positif','negatif','netral'
-        if ($raw === 'positif')    $row['label_norm'] = 'positive';
-        elseif ($raw === 'negatif') $row['label_norm'] = 'negative';
-        elseif ($raw === 'netral')  $row['label_norm'] = 'neutral';
-        else                        $row['label_norm'] = 'neutral';
+        $raw = strtolower($row['label_str']);
+        $row['label_norm'] = match ($raw) {
+            'positif' => 'positive',
+            'negatif' => 'negative',
+            'netral'  => 'neutral',
+            default   => 'neutral'
+        };
     }
     unset($row);
 
-    // Pie chart: gunakan 'label_norm'
-    $labelsSent = array_column($labelsData, 'label_norm');
-    $dataSent   = array_count_values($labelsSent);
+    // Pie chart: distribusi berdasarkan label_norm
+    $labelsSent           = array_column($labelsData, 'label_norm');
+    $dataSent             = array_count_values($labelsSent);
 
-    // --- Overall word frequencies & top features ---
-    $textsAll    = array_filter(array_column($labelsData, 'clean_text'));
-    $combinedAll = implode(' ', $textsAll);
-    $wordsAll    = str_word_count(strtolower($combinedAll), 1);
-    $freqsAll    = array_count_values($wordsAll);
+    // 2) Word Frequencies
+    $textsAll             = array_filter(array_column($labelsData, 'clean_text'));
+    $combinedAll          = implode(' ', $textsAll);
+    $wordsAll             = str_word_count(strtolower($combinedAll), 1);
+    $freqsAll             = array_count_values($wordsAll);
     arsort($freqsAll);
-    $wordFrequencies = array_slice($freqsAll, 0, 100, true);
-    $topFeatures     = array_slice($freqsAll, 0, 10, true);
+    $wordFrequencies      = array_slice($freqsAll, 0, 100, true);
+    $topFeatures          = array_slice($freqsAll, 0, 10, true);
 
-    // --- Per‐label word frequencies & top features ---
-    $labelsList = ['positive','negative','neutral'];
+    $labelsList           = ['positive','negative','neutral'];
     $wordFrequenciesByLabel = [];
     $topFeaturesByLabel     = [];
-
     foreach ($labelsList as $lbl) {
-        $texts = array_column(
-            array_filter($labelsData, fn($row) => $row['label_norm'] === $lbl),
-            'clean_text'
-        );
-        $combined = implode(' ', $texts);
-        $words    = str_word_count(strtolower($combined), 1);
+        $texts    = array_column(
+                      array_filter($labelsData, fn($r) => $r['label_norm'] === $lbl),
+                      'clean_text'
+                    );
+        $words    = str_word_count(strtolower(implode(' ', $texts)), 1);
         $freqs    = array_count_values($words);
         arsort($freqs);
 
@@ -187,59 +218,59 @@ public function index()
         $topFeaturesByLabel[$lbl]     = array_slice($freqs, 0, 10, true);
     }
 
-    // 2) Confusion Matrix
+    // 3) Confusion Matrix
     $cmRecords = $this->loadCsv('confusion_matrix');
     if ($cmRecords instanceof RedirectResponse) {
         return $cmRecords;
     }
-    $reader       = Reader::createFromPath(Storage::disk('local')->path('confusion_matrix.csv'), 'r');
+    $reader      = Reader::createFromPath(
+                       Storage::disk('local')->path('confusion_matrix.csv'),
+                       'r'
+                   );
     $reader->setHeaderOffset(0);
-    $headers      = $reader->getHeader();
-    $trueLabelKey = array_shift($headers);
-    $cmCols       = $headers;
-    $cmRows       = iterator_to_array($reader->getRecords());
+    $headers     = $reader->getHeader();
+    $trueLabelKey= array_shift($headers);   // ambil kolom pertama sebagai label
+    $cmCols      = $headers;                // sisa header jadi kolom prediksi
+    $cmRows      = iterator_to_array($reader->getRecords());
 
-    // 3) Evaluation Metrics
-    $evalRaw = $this->loadCsv('evaluation_metrics_full');
+    // 4) Evaluation Metrics (dinamis)
+    $evalRaw     = $this->loadCsv('evaluation_metrics_full');
     if ($evalRaw instanceof RedirectResponse) {
         return $evalRaw;
     }
-    $evalFiltered = array_filter($evalRaw, function ($row) {
-        return isset($row[''], $row['precision'], $row['recall'], $row['f1-score'])
-            && $row[''] !== ''
+    // cari key kolom pertama (label)
+    $firstKeys   = array_keys($evalRaw[0] ?? []);
+    $labelKey    = $firstKeys[0] ?? '';
+
+    $classes     = [];
+    $precision   = [];
+    $recall      = [];
+    $f1          = [];
+
+    foreach ($evalRaw as $row) {
+        if (
+            isset($row[$labelKey], $row['precision'], $row['recall'], $row['f1-score'])
+            && $row[$labelKey] !== ''
             && is_numeric($row['precision'])
             && is_numeric($row['recall'])
-            && is_numeric($row['f1-score']);
-    });
-    $classes   = array_column($evalFiltered, '');
-    $precision = array_map('floatval', array_column($evalFiltered, 'precision'));
-    $recall    = array_map('floatval', array_column($evalFiltered, 'recall'));
-    $f1        = array_map('floatval', array_column($evalFiltered, 'f1-score'));
-
-    // 4) Akurasi Harian
-    $predRaw = $this->loadCsv('df_full_predictions');
-    if ($predRaw instanceof RedirectResponse) {
-        return $predRaw;
+            && is_numeric($row['f1-score'])
+        ) {
+            $classes[]   = $row[$labelKey];
+            $precision[] = (float) $row['precision'];
+            $recall[]    = (float) $row['recall'];
+            $f1[]        = (float) $row['f1-score'];
+        }
     }
-    $byDate = [];
-    foreach ($predRaw as $row) {
-        $d = $row['tweet_date'];
-        $byDate[$d]['total']   = ($byDate[$d]['total'] ?? 0) + 1;
-        $byDate[$d]['correct'] = ($byDate[$d]['correct'] ?? 0)
-                               + (($row['label_name'] === $row['predicted_label']) ? 1 : 0);
-    }
-    uksort($byDate, fn($a, $b) => strtotime($a) <=> strtotime($b));
-    $dates = array_keys($byDate);
-    $accs  = array_map(fn($g) => round($g['correct'] / $g['total'], 4), $byDate);
 
-    // Return ke view dengan semua variabel
+
+    // Kirim semua ke view
     return view('viz.index', compact(
         'dataSent',
         'wordFrequencies', 'topFeatures',
         'wordFrequenciesByLabel', 'topFeaturesByLabel',
         'cmCols', 'cmRows', 'trueLabelKey',
-        'classes', 'precision', 'recall', 'f1',
-        'dates', 'accs'
+        'classes', 'precision', 'recall', 'f1'
     ));
 }
+
 }

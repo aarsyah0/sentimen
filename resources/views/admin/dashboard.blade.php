@@ -1,4 +1,3 @@
-{{-- resources/views/admin/dashboard.blade.php --}}
 @extends('admin.layouts.app')
 @section('title', 'Dashboard')
 
@@ -18,12 +17,6 @@
                 <h3 class="text-lg font-medium">Distribusi Sentimen</h3>
                 <canvas id="pieChart"></canvas>
             </div>
-        </div>
-
-        {{-- Line Chart --}}
-        <div class="bg-white shadow rounded-lg p-4">
-            <h3 class="text-lg font-medium mb-2">Akurasi Harian</h3>
-            <canvas id="lineChart"></canvas>
         </div>
 
         {{-- Confusion Matrix --}}
@@ -50,33 +43,39 @@
         </div>
 
         {{-- Evaluation Metrics --}}
-        {{-- Evaluation Metrics --}}
-
         <div class="bg-white shadow rounded-lg p-4 overflow-auto">
             <h3 class="text-lg font-medium mb-2">Evaluation Metrics (Full)</h3>
-
             <table class="min-w-full border-collapse">
                 <thead>
                     <tr class="bg-gray-100">
-                        @foreach (array_keys($evalMetrics[0] ?? []) as $col)
-                            <th class="border px-4 py-2">{{ ucfirst($col) }}</th>
-                        @endforeach
+                        <th class="border px-4 py-2">Label</th>
+                        <th class="border px-4 py-2">Precision</th>
+                        <th class="border px-4 py-2">Recall</th>
+                        <th class="border px-4 py-2">F1 Score</th>
+                        <th class="border px-4 py-2">Support</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($evalMetrics as $row)
+                    @forelse ($evalMetrics as $m)
                         <tr>
-                            @foreach ($row as $cell)
-                                <td class="border px-4 py-2 text-center">{{ $cell }}</td>
-                            @endforeach
+                            <td class="border px-4 py-2 text-center">{{ $m['label'] }}</td>
+                            <td class="border px-4 py-2 text-center">{{ $m['precision'] }}</td>
+                            <td class="border px-4 py-2 text-center">{{ $m['recall'] }}</td>
+                            <td class="border px-4 py-2 text-center">{{ $m['f1_score'] }}</td>
+                            <td class="border px-4 py-2 text-center">{{ $m['support'] }}</td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="5" class="border px-4 py-2 text-center text-gray-500">
+                                No evaluation metrics data.
+                            </td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
-
         </div>
-
     </div>
+
     <div class="flex justify-end mb-4">
         <a href="{{ route('viz.index') }}" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow">
             Lihat Visualisasi Publik
@@ -85,7 +84,11 @@
 @endsection
 
 @push('scripts')
+    <!-- Luxon (global build), Chart.js & Luxon Adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@2/build/global/luxon.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+
     <script>
         // Pie Chart Sentiment Distribution
         new Chart(document.getElementById('pieChart'), {
@@ -98,7 +101,7 @@
             }
         });
 
-        // Line Chart Akurasi Harian
+        // Line Chart Akurasi Harian dengan Time Scale
         new Chart(document.getElementById('lineChart'), {
             type: 'line',
             data: {
@@ -109,6 +112,30 @@
                     fill: false,
                     tension: 0.1
                 }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            parser: 'YYYY-MM-DD',
+                            tooltipFormat: 'DD LLL yyyy',
+                            unit: 'day'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Tanggal'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Akurasi'
+                        },
+                        suggestedMin: 0,
+                        suggestedMax: 1
+                    }
+                }
             }
         });
     </script>

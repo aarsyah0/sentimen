@@ -4,124 +4,103 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Sentiment Analysis Perview</title>
+    <title>Sentiment Analysis Dashboard</title>
     <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3"></script>
     <!-- WordCloud2.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.0.6/wordcloud2.min.js"></script>
-    <style>
-        .wc-container {
-            width: 400px !important;
-            height: 400px !important;
-            border: 1px solid #ddd;
-            margin: 1rem auto;
-            display: block;
-            position: relative;
-        }
-    </style>
 </head>
 
-<body class="bg-white text-black antialiased">
-
+<body class="bg-gray-50 text-gray-800 antialiased">
     <!-- Navbar -->
-    <nav class="bg-gradient-to-r from-blue-800 via-blue-600 to-blue-500 p-4 text-white shadow">
-        <div class="max-w-screen-xl mx-auto flex items-center justify-between">
-            <div class="flex items-center space-x-4">
-                <img src="/assets/pj.png" alt="Logo" class="h-12">
-                <span class="text-2xl font-bold">Sentiment Dashboard</span>
+    <nav class="bg-gradient-to-r from-blue-800 via-blue-600 to-blue-500 shadow-md sticky top-0 z-10">
+        <div class="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <img src="/assets/pj.png" alt="Logo" class="h-10 w-10">
+                <span class="text-2xl font-bold text-white">Sentiment Dashboard</span>
             </div>
-            <div>
-                <a href="{{ route('login') }}" class="bg-white text-blue-600 px-4 py-2 rounded">Login</a>
-            </div>
+            <a href="{{ route('login') }}"
+                class="px-4 py-2 bg-blue-200 text rounded-lg hover:bg-blue-400 transition">Login</a>
         </div>
     </nav>
 
-    <header class="pt-16 bg-white">
-        <div class="max-w-screen-xl mx-auto text-center py-16 px-4">
-            <h1 class="text-6xl font-extrabold text-blue-600">Sentiment Analysis Perview</h1>
-            <p class="mt-4 text-2xl text-gray-800">Professional insights with Naive Bayes & WordCloud</p>
+    <!-- Header -->
+    <header class="bg-white py-12">
+        <div class="max-w-screen-xl mx-auto text-center px-6">
+            <h1 class="text-5xl font-extrabold text-gray-900 mb-2">Sentiment Analysis Overview</h1>
+            <p class="text-lg text-gray-600">Insights from Naive Bayes model & WordCloud visualizations</p>
         </div>
     </header>
 
-    <main class="max-w-screen-xl mx-auto px-8 py-12 space-y-12">
-
-        <!-- 1) Pie Chart: Distribusi Sentimen -->
-        <section>
-            <h2 class="text-3xl font-bold mb-4 text-blue-700">Distribusi Sentimen</h2>
-            <canvas id="sentimentPie" class="max-w-md mx-auto"></canvas>
+    <main class="max-w-screen-xl mx-auto px-6 py-8 space-y-16">
+        <!-- Sentiment Distribution Card -->
+        <section class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Distribusi Sentimen</h2>
+            <div class="flex justify-center">
+                <canvas id="sentimentPie" class="w-64 h-64"></canvas>
+            </div>
         </section>
 
-        <!-- 2) Line Chart: Akurasi Harian -->
+        <!-- WordCloud Section -->
         <section>
-            <h2 class="text-3xl font-bold mt-12 mb-4 text-blue-700">Akurasi Harian</h2>
-            <canvas id="accuracyLine" class="w-full h-64"></canvas>
-        </section>
-
-        <!-- 3) Word Cloud -->
-        <section>
-            <h2 class="text-3xl font-bold mt-12 mb-4 text-blue-700">WordCloud per Label Sentimen</h2>
-            <div class="flex flex-wrap justify-center">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-6 text-center">WordCloud per Label Sentimen</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 @foreach (['positive', 'negative', 'neutral'] as $lbl)
-                    <div class="w-1/3 text-center p-4">
-                        <h3 class="text-xl font-semibold capitalize">{{ $lbl }}</h3>
-                        <!-- Inline size ensures WordCloud picks up dimensions -->
-                        <div id="wc-{{ $lbl }}" class="wc-container"></div>
-                        <ul class="mt-2 text-sm text-gray-700">
-                            @foreach ($topFeaturesByLabel[$lbl] as $word => $count)
-                            @endforeach
-                        </ul>
+                    <div class="bg-white p-4 rounded-2xl shadow-md flex flex-col items-center">
+                        <h3 class="text-xl font-medium capitalize text-gray-700 mb-2">{{ $lbl }}</h3>
+                        <div id="wc-{{ $lbl }}" class="w-80 h-80 border border-gray-200 rounded-lg"></div>
                     </div>
                 @endforeach
             </div>
         </section>
 
-        <!-- 4) Top Features -->
-        <section>
-            <h2 class="text-3xl font-bold mt-12 mb-4 text-blue-700">Top 10 Kata Teratas</h2>
-            <table class="table-auto w-full text-left border border-gray-300 rounded-lg shadow-sm">
-                <thead class="bg-blue-100 text-blue-800">
-                    <tr>
-                        <th class="px-4 py-2">#</th>
-                        <th class="px-4 py-2">Kata</th>
-                        <th class="px-4 py-2">Jumlah</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($topFeatures as $word => $count)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-4 py-2">{{ $loop->iteration }}</td>
-                            <td class="px-4 py-2 font-medium">{{ $word }}</td>
-                            <td class="px-4 py-2">{{ $count }}</td>
+        <!-- Top Features Table -->
+        <section class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Top 10 Kata Teratas</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-left">
+                    <thead class="bg-blue-50">
+                        <tr>
+                            <th class="px-4 py-2 font-medium text-gray-700">#</th>
+                            <th class="px-4 py-2 font-medium text-gray-700">Kata</th>
+                            <th class="px-4 py-2 font-medium text-gray-700">Jumlah</th>
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </section>
-
-        <!-- 5) barchart Chart: Precision, Recall, F1 Score -->
-        <section>
-            <div class="bg-white shadow rounded-lg p-4 overflow-auto">
-                <h3 class="text-lg font-medium mb-2">Evaluation Metrics (Full)</h3>
-                <canvas id="evalMetricsChart" height="300"></canvas>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach ($topFeatures as $word => $count)
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-2">{{ $loop->iteration }}</td>
+                                <td class="px-4 py-2 font-medium">{{ $word }}</td>
+                                <td class="px-4 py-2">{{ $count }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         </section>
 
-        <!-- 6) Confusion Matrix -->
-        <section>
-            <h2 class="text-3xl font-bold mt-12 mb-4 text-blue-700">Confusion Matrix</h2>
-            <div class="overflow-auto">
-                <table class="table-auto min-w-full text-left border border-gray-300 rounded-lg shadow-sm">
-                    <thead class="bg-blue-100 text-blue-800">
+        <!-- Evaluation Metrics Chart -->
+        <section class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Evaluation Metrics</h2>
+            <canvas id="evalMetricsChart" class="w-full h-72"></canvas>
+        </section>
+
+        <!-- Confusion Matrix Table -->
+        <section class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Confusion Matrix</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-left">
+                    <thead class="bg-blue-50">
                         <tr>
-                            <th class="px-4 py-2">{{ $trueLabelKey }}</th>
+                            <th class="px-4 py-2 font-medium text-gray-700">{{ $trueLabelKey }}</th>
                             @foreach ($cmCols as $col)
-                                <th class="px-4 py-2">{{ $col }}</th>
+                                <th class="px-4 py-2 font-medium text-gray-700">{{ $col }}</th>
                             @endforeach
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-gray-100">
                         @foreach ($cmRows as $row)
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-2 font-medium">{{ $row[$trueLabelKey] }}</td>
@@ -134,12 +113,11 @@
                 </table>
             </div>
         </section>
-
     </main>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Pie chart
+            // Pie Chart
             new Chart(document.getElementById('sentimentPie'), {
                 type: 'pie',
                 data: {
@@ -149,40 +127,26 @@
                         backgroundColor: ['#EF4444', '#3B82F6', '#10B981'],
                         hoverOffset: 10
                     }]
+                },
+                options: {
+                    responsive: true
                 }
             });
 
-            // Akurasi Harian
-            new Chart(document.getElementById('accuracyLine'), {
-                type: 'line',
-                data: {
-                    labels: {!! json_encode($dates) !!},
-                    datasets: [{
-                        label: 'Akurasi',
-                        data: {!! json_encode($accs) !!},
-                        borderColor: 'rgba(37,99,235,1)',
-                        backgroundColor: 'rgba(147,197,253,0.4)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                }
-            });
-
-            // WordCloud per label
-            const freqsByLabel = @json($wordFrequenciesByLabel);
-            Object.entries(freqsByLabel).forEach(([label, freqObj]) => {
-                const list = Object.entries(freqObj);
-                WordCloud(document.getElementById('wc-' + label), {
-                    list,
+            // WordCloud
+            const freqs = @json($wordFrequenciesByLabel);
+            Object.entries(freqs).forEach(([lbl, f]) => {
+                WordCloud(document.getElementById('wc-' + lbl), {
+                    list: Object.entries(f),
                     gridSize: 12,
-                    weightFactor: size => size * 1,
+                    weightFactor: s => s * 1.5,
+                    backgroundColor: '#f8fafc',
                     rotateRatio: 0.1,
-                    minSize: 12,
-                    backgroundColor: '#f8f9fa'
+                    minSize: 14
                 });
             });
 
-            // Evaluation Metrics Bar Chart
+            // Metrics Bar Chart
             new Chart(document.getElementById('evalMetricsChart'), {
                 type: 'bar',
                 data: {
@@ -190,17 +154,17 @@
                     datasets: [{
                             label: 'Precision',
                             data: {!! json_encode($precision) !!},
-                            backgroundColor: 'rgba(54,162,235,0.7)'
+                            backgroundColor: 'rgba(59,130,246,0.7)'
                         },
                         {
                             label: 'Recall',
                             data: {!! json_encode($recall) !!},
-                            backgroundColor: 'rgba(255,206,86,0.7)'
+                            backgroundColor: 'rgba(16,185,129,0.7)'
                         },
                         {
                             label: 'F1 Score',
                             data: {!! json_encode($f1) !!},
-                            backgroundColor: 'rgba(75,192,192,0.7)'
+                            backgroundColor: 'rgba(239,68,68,0.7)'
                         }
                     ]
                 },
@@ -209,17 +173,41 @@
                     scales: {
                         y: {
                             beginAtZero: true,
-                            max: 2,
-                            ticks: {
-                                stepSize: 0.1
-                            }
+                            stepSize: 0.1
+                        }
+                    }
+                }
+            });
+            new Chart(document.getElementById('evalMetricsChart'), {
+                type: 'bar',
+                data: {
+                    labels: classes,
+                    datasets: [{
+                        label: 'Precision',
+                        data: precision,
+                        backgroundColor: 'rgba(59,130,246,0.7)'
+                    }, {
+                        label: 'Recall',
+                        data: recall,
+                        backgroundColor: 'rgba(16,185,129,0.7)'
+                    }, {
+                        label: 'F1 Score',
+                        data: f1,
+                        backgroundColor: 'rgba(239,68,68,0.7)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            stepSize: 0.1
                         }
                     }
                 }
             });
         });
     </script>
-
 </body>
 
 </html>
