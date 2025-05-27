@@ -42,5 +42,12 @@
                 Sign In
             </button>
         </form>
+        {{-- Tombol kembali ke halaman viz --}}
+        <div class="mt-6 text-center">
+            <a href="{{ route('viz.index') }}"
+                class="inline-block text-sm text-gray-600 hover:text-gray-800 hover:underline">
+                &larr; Back to Visualisation
+            </a>
+        </div>
     </div>
 @endsection

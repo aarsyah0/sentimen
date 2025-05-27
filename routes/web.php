@@ -5,11 +5,12 @@ use App\Http\Controllers\DataVizController;
 use Illuminate\Support\Facades\Route;
 
 // Root: redirect ke login jika tamu, atau ke viz.index jika sudah login
-Route::get('/', function () {
-    return auth()->check()
-        ? redirect()->route('viz.index')
-        : redirect()->route('login');
-});
+// Root: selalu redirect ke viz.index
+// Root: selalu redirect ke /viz
+Route::redirect('/', 'viz');
+
+// 2) Public: halaman visualisasi tanpa auth
+Route::get('viz', [DataVizController::class, 'index'])->name('viz.index');
 
 // Guest-only: form & proses login
 Route::middleware('guest')->group(function () {
@@ -28,7 +29,4 @@ Route::middleware('auth')->group(function () {
     // Upload data
     Route::get('upload', [DataVizController::class, 'showUploadForm'])->name('upload.form');
     Route::post('upload', [DataVizController::class, 'uploadData'])->name('upload.data');
-
-    // Halaman visualisasi publik
-    Route::get('viz', [DataVizController::class, 'index'])->name('viz.index');
 });
