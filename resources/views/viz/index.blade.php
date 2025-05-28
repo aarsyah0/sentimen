@@ -21,7 +21,7 @@
                 <img src="/assets/pj.png" alt="Logo" class="h-10 w-10">
                 <div>
                     <span class="text-2xl font-bold text-white">Sentiment Dashboard</span><br>
-                    <span class="text-sm text-white">by : Oktaviarlen Setya W (E31221299)</span>
+                    <span class="text-sm text-white">Manajemen Informatika</span>
                 </div>
             </div>
             <a href="{{ route('login') }}"
@@ -32,8 +32,8 @@
     <!-- Header -->
     <header class="bg-white py-12">
         <div class="max-w-screen-xl mx-auto text-center px-6">
-            <h1 class="text-5xl font-extrabold text-gray-900 mb-2">Sentiment Analysis Overview</h1>
-            <p class="text-lg text-gray-600">Insights from Naive Bayes model & WordCloud visualizations</p>
+            <h1 class="text-5xl font-extrabold text-gray-900 mb-2">Analisis Sentimen Sistem Operasi iOS 15,16,17 Menggunakan Naive Bayes</h1>
+            <p class="text-lg text-gray-600">Tugas Akhir Oktaviarlen Setya (E31221299)</p>
         </div>
     </header>
 
