@@ -100,43 +100,5 @@
                 }]
             }
         });
-
-        // Line Chart Akurasi Harian dengan Time Scale
-        new Chart(document.getElementById('lineChart'), {
-            type: 'line',
-            data: {
-                labels: {!! json_encode($dates) !!},
-                datasets: [{
-                    label: 'Akurasi',
-                    data: {!! json_encode($accuracies) !!},
-                    fill: false,
-                    tension: 0.1
-                }]
-            },
-            options: {
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            parser: 'YYYY-MM-DD',
-                            tooltipFormat: 'DD LLL yyyy',
-                            unit: 'day'
-                        },
-                        title: {
-                            display: true,
-                            text: 'Tanggal'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: 'Akurasi'
-                        },
-                        suggestedMin: 0,
-                        suggestedMax: 1
-                    }
-                }
-            }
-        });
     </script>
 @endpush

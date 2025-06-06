@@ -32,7 +32,8 @@
     <!-- Header -->
     <header class="bg-white py-12">
         <div class="max-w-screen-xl mx-auto text-center px-6">
-            <h1 class="text-5xl font-extrabold text-gray-900 mb-2">Analisis Sentimen Sistem Operasi iOS 15,16,17 Menggunakan Naive Bayes</h1>
+            <h1 class="text-5xl font-extrabold text-gray-900 mb-2">Analisis Sentimen Sistem Operasi iOS 15,16,17
+                Menggunakan Naive Bayes</h1>
             <p class="text-lg text-gray-600">Tugas Akhir Oktaviarlen Setya (E31221299)</p>
         </div>
     </header>
@@ -108,6 +109,40 @@
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-2 font-medium">{{ $row[$trueLabelKey] }}</td>
                                 @foreach ($cmCols as $col)
+                                    <td class="px-4 py-2">{{ $row[$col] }}</td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        <section class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">
+                Confusion Matrix (Uji)
+            </h2>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-left">
+                    <thead class="bg-blue-50">
+                        <tr>
+                            {{-- First header cell: the “true” label column name --}}
+                            <th class="px-4 py-2 font-medium text-gray-700">{{ $trueLabelKeyUji }}</th>
+
+                            {{-- Then one <th> per predicted label --}}
+                            @foreach ($cmColsUji as $col)
+                                <th class="px-4 py-2 font-medium text-gray-700">{{ $col }}</th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach ($cmRowsUji as $row)
+                            <tr class="hover:bg-gray-50">
+                                {{-- First cell: the actual true‐label value --}}
+                                <td class="px-4 py-2 font-medium">{{ $row[$trueLabelKeyUji] }}</td>
+
+                                {{-- One cell per predicted column --}}
+                                @foreach ($cmColsUji as $col)
                                     <td class="px-4 py-2">{{ $row[$col] }}</td>
                                 @endforeach
                             </tr>

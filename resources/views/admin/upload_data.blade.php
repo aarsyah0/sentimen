@@ -25,6 +25,7 @@
             'data_with_labels' => 'Data with Labels',
             'df_full_predictions' => 'Full Predictions',
             'evaluation_metrics_full' => 'Evaluation Metrics (Full)',
+            'confusion_matrixuji' => 'Confusion Matrix (Uji)',
         ] as $field => $label)
                     <div>
                         <label for="{{ $field }}" class="block text-gray-700 font-medium mb-1">
