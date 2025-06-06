@@ -91,6 +91,12 @@
             <canvas id="evalMetricsChart" class="w-full h-72"></canvas>
         </section>
 
+        <!-- Evaluation Metrics Chart -->
+        <section class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Evaluation Metrics Uji</h2>
+            <canvas id="evalMetricsUjiChart" class="w-full h-72"></canvas>
+        </section>
+
         <!-- Confusion Matrix Table -->
         <section class="bg-white p-6 rounded-2xl shadow-lg">
             <h2 class="text-2xl font-semibold text-blue-600 mb-4">Confusion Matrix</h2>
@@ -244,6 +250,67 @@
                     }
                 }
             });
+        });
+
+        // Metrics Bar Chart
+        new Chart(document.getElementById('evalMetricsUjiChart'), {
+            type: 'bar',
+            data: {
+                labels: {!! json_encode($classesUji) !!},
+                datasets: [{
+                        label: 'Precision',
+                        data: {!! json_encode($precisionUji) !!},
+                        backgroundColor: 'rgba(59,130,246,0.7)'
+                    },
+                    {
+                        label: 'Recall',
+                        data: {!! json_encode($recallUji) !!},
+                        backgroundColor: 'rgba(16,185,129,0.7)'
+                    },
+                    {
+                        label: 'F1 Score',
+                        data: {!! json_encode($f1Uji) !!},
+                        backgroundColor: 'rgba(239,68,68,0.7)'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        stepSize: 0.1
+                    }
+                }
+            }
+        });
+        new Chart(document.getElementById('evalMetricsUjiChart'), {
+            type: 'bar',
+            data: {
+                labels: classesUji,
+                datasets: [{
+                    label: 'Precision',
+                    data: precisionUji,
+                    backgroundColor: 'rgba(59,130,246,0.7)'
+                }, {
+                    label: 'Recall',
+                    data: recallUji,
+                    backgroundColor: 'rgba(16,185,129,0.7)'
+                }, {
+                    label: 'F1 Score',
+                    data: f1Uji,
+                    backgroundColor: 'rgba(239,68,68,0.7)'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        stepSize: 0.1
+                    }
+                }
+            }
         });
     </script>
 </body>

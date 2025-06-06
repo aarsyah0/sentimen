@@ -66,14 +66,13 @@ if ($firstRow !== false) {
     }
 }
 
-
         return view('admin.dashboard', compact(
             'userCount',
             'csvCount',
             'distCounts',
             'cmHeader',
             'cmRows',
-            'evalMetrics'
+            'evalMetrics',
         ));
     }
 
@@ -103,6 +102,7 @@ if ($firstRow !== false) {
             'df_full_predictions',
             'evaluation_metrics_full',
             'confusion_matrixuji',
+            'evaluation_metricsuji',
         ];
 
         // Validasi: setiap field harus file CSV/TXT
@@ -251,6 +251,32 @@ if ($firstRow !== false) {
             }
         }
     }
+    //evaluasi metrics uji
+    $evalDataUji = $this->loadCsv('evaluation_metricsuji');
+    $classesUji   = [];
+    $precisionUji = [];
+    $recallUji    = [];
+    $f1Uji        = [];
+    // Ambil baris pertama secara aman
+    $firstRowUji = reset($evalDataUji['records']); // false jika kosong
+    if ($firstRowUji !== false) {
+        $firstKeysUji = array_keys($firstRowUji);
+        $labelKeyUji  = $firstKeysUji[0] ?? '';
+        foreach ($evalDataUji['records'] as $row) {
+            if (
+                isset($row[$labelKeyUji], $row['precision'], $row['recall'], $row['f1-score'])
+                && $row[$labelKeyUji] !== ''
+                && is_numeric($row['precision'])
+                && is_numeric($row['recall'])
+                && is_numeric($row['f1-score'])
+            ) {
+                $classesUji[]   = $row[$labelKeyUji];
+                $precisionUji[] = (float) $row['precision'];
+                $recallUji[]    = (float) $row['recall'];
+                $f1Uji[]        = (float) $row['f1-score'];
+            }
+        }
+    }
 
         return view('viz.index', compact(
             'dataSent',
@@ -267,7 +293,11 @@ if ($firstRow !== false) {
             'classes',
             'precision',
             'recall',
-            'f1'
+            'f1',
+            'classesUji',
+            'precisionUji',
+            'recallUji',
+            'f1Uji'
         ));
     }
 }
