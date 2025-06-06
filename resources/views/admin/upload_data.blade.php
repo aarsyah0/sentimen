@@ -15,7 +15,7 @@
         @endif
 
         <div class="bg-white shadow-md rounded-lg p-6">
-            <h2 class="text-2xl font-semibold mb-4">Form Upload Empat CSV</h2>
+            <h2 class="text-2xl font-semibold mb-4">Form Upload CSV</h2>
 
             <form action="{{ route('upload.data') }}" method="POST" enctype="multipart/form-data" class="space-y-5">
                 @csrf
