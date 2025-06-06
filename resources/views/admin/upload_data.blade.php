@@ -50,7 +50,7 @@
                 <button type="submit"
                     class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg
                            shadow-md transform hover:scale-105 transition duration-200">
-                    Upload Empat CSV
+                    Upload CSV
                 </button>
             </form>
         </div>
