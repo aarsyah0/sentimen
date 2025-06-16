@@ -18,14 +18,14 @@
     <nav class="bg-gradient-to-r from-blue-800 via-blue-600 to-blue-500 shadow-md sticky top-0 z-10">
         <div class="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <img src="/assets/pj.png" alt="Logo" class="h-10 w-10">
+                <img src="{{ asset('assets/pj.png') }}" alt="Logo" class="h-10 w-10">
                 <div>
                     <span class="text-2xl font-bold text-white">Sentiment Dashboard</span><br>
                     <span class="text-sm text-white">Manajemen Informatika</span>
                 </div>
             </div>
             <a href="{{ route('login') }}"
-                class="px-4 py-2 bg-blue-200 text rounded-lg hover:bg-blue-400 transition">Login</a>
+                class="px-4 py-2 bg-blue-200 text-blue-800 rounded-lg hover:bg-blue-400 transition">Login</a>
         </div>
     </nav>
 
@@ -47,7 +47,7 @@
             </div>
         </section>
 
-        <!-- WordCloud Section -->
+        <!-- WordCloud per Label -->
         <section>
             <h2 class="text-2xl font-semibold text-blue-600 mb-6 text-center">WordCloud per Label Sentimen</h2>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -60,99 +60,123 @@
             </div>
         </section>
 
-        <!-- Top Features Table -->
+        <!-- Top Features: 3 Tables per Label -->
         <section class="bg-white p-6 rounded-2xl shadow-lg">
-            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Top 10 Kata Teratas</h2>
-            <div class="overflow-x-auto">
-                <table class="min-w-full text-left">
-                    <thead class="bg-blue-50">
-                        <tr>
-                            <th class="px-4 py-2 font-medium text-gray-700">#</th>
-                            <th class="px-4 py-2 font-medium text-gray-700">Kata</th>
-                            <th class="px-4 py-2 font-medium text-gray-700">Jumlah</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @foreach ($topFeatures as $word => $count)
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-2">{{ $loop->iteration }}</td>
-                                <td class="px-4 py-2 font-medium">{{ $word }}</td>
-                                <td class="px-4 py-2">{{ $count }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Top Kata Teratas per Label</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                @foreach (['positive', 'negative', 'neutral'] as $label)
+                    <div class="bg-white p-4 rounded-2xl shadow-md border">
+                        <h3 class="text-xl font-medium capitalize text-gray-700 mb-2">{{ $label }}</h3>
+                        @php
+                            // Ambil array fitur untuk label ini; jika tidak ada, jadikan array kosong
+                            $features = $topFeaturesByLabel[$label] ?? [];
+                        @endphp
+
+                        @if (empty($features))
+                            <p class="text-sm text-gray-500">Tidak ada data untuk label {{ $label }}.</p>
+                        @else
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-left">
+                                    <thead class="bg-blue-50">
+                                        <tr>
+                                            <th class="px-4 py-2 font-medium text-gray-700">Rank</th>
+                                            <th class="px-4 py-2 font-medium text-gray-700">Kata</th>
+
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @foreach ($features as $word => $count)
+                                            <tr class="hover:bg-gray-50">
+                                                <td class="px-4 py-2">{{ $loop->iteration }}</td>
+                                                <td class="px-4 py-2 font-medium">{{ $word }}</td>
+
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
             </div>
         </section>
-
-        <!-- Evaluation Metrics Chart -->
+        <!-- Evaluation Metrics (Training) -->
         <section class="bg-white p-6 rounded-2xl shadow-lg">
-            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Evaluation Metrics</h2>
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Evaluation Metrics (Training)</h2>
             <canvas id="evalMetricsChart" class="w-full h-72"></canvas>
         </section>
 
-        <!-- Evaluation Metrics Chart -->
+        <!-- Evaluation Metrics (Uji) -->
         <section class="bg-white p-6 rounded-2xl shadow-lg">
-            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Evaluation Metrics Uji</h2>
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Evaluation Metrics (Uji)</h2>
             <canvas id="evalMetricsUjiChart" class="w-full h-72"></canvas>
         </section>
 
-        <!-- Confusion Matrix Table -->
+        <!-- Confusion Matrix (Training) -->
         <section class="bg-white p-6 rounded-2xl shadow-lg">
-            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Confusion Matrix</h2>
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Confusion Matrix (Training)</h2>
             <div class="overflow-x-auto">
                 <table class="min-w-full text-left">
                     <thead class="bg-blue-50">
                         <tr>
+                            {{-- Kolom pertama: header true label --}}
                             <th class="px-4 py-2 font-medium text-gray-700">{{ $trueLabelKey }}</th>
+                            {{-- Kolom prediksi --}}
                             @foreach ($cmCols as $col)
                                 <th class="px-4 py-2 font-medium text-gray-700">{{ $col }}</th>
                             @endforeach
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        @foreach ($cmRows as $row)
+                        @forelse ($cmRows as $row)
                             <tr class="hover:bg-gray-50">
+                                {{-- Sel true label --}}
                                 <td class="px-4 py-2 font-medium">{{ $row[$trueLabelKey] }}</td>
+                                {{-- Sel prediksi --}}
                                 @foreach ($cmCols as $col)
                                     <td class="px-4 py-2">{{ $row[$col] }}</td>
                                 @endforeach
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr>
+                                <td colspan="{{ 1 + count($cmCols) }}" class="px-4 py-2 text-center text-gray-500">
+                                    Data confusion matrix training tidak tersedia.
+                                </td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
         </section>
-        <section class="bg-white p-6 rounded-2xl shadow-lg">
-            <h2 class="text-2xl font-semibold text-blue-600 mb-4">
-                Confusion Matrix (Uji)
-            </h2>
 
+        <!-- Confusion Matrix (Uji) -->
+        <section class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-semibold text-blue-600 mb-4">Confusion Matrix (Uji)</h2>
             <div class="overflow-x-auto">
                 <table class="min-w-full text-left">
                     <thead class="bg-blue-50">
                         <tr>
-                            {{-- First header cell: the “true” label column name --}}
                             <th class="px-4 py-2 font-medium text-gray-700">{{ $trueLabelKeyUji }}</th>
-
-                            {{-- Then one <th> per predicted label --}}
                             @foreach ($cmColsUji as $col)
                                 <th class="px-4 py-2 font-medium text-gray-700">{{ $col }}</th>
                             @endforeach
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
-                        @foreach ($cmRowsUji as $row)
+                        @forelse ($cmRowsUji as $row)
                             <tr class="hover:bg-gray-50">
-                                {{-- First cell: the actual true‐label value --}}
                                 <td class="px-4 py-2 font-medium">{{ $row[$trueLabelKeyUji] }}</td>
-
-                                {{-- One cell per predicted column --}}
                                 @foreach ($cmColsUji as $col)
                                     <td class="px-4 py-2">{{ $row[$col] }}</td>
                                 @endforeach
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr>
+                                <td colspan="{{ 1 + count($cmColsUji) }}" class="px-4 py-2 text-center text-gray-500">
+                                    Data confusion matrix uji tidak tersedia.
+                                </td>
+                            </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
@@ -161,155 +185,132 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Pie Chart
-            new Chart(document.getElementById('sentimentPie'), {
-                type: 'pie',
-                data: {
-                    labels: {!! json_encode(array_keys($dataSent)) !!},
-                    datasets: [{
-                        data: {!! json_encode(array_values($dataSent)) !!},
-                        backgroundColor: ['#EF4444', '#3B82F6', '#10B981'],
-                        hoverOffset: 10
-                    }]
-                },
-                options: {
-                    responsive: true
-                }
-            });
+            // Data dari Blade ke JS
+            const dataSentLabels = {!! json_encode(array_keys($dataSent)) !!};
+            const dataSentValues = {!! json_encode(array_values($dataSent)) !!};
 
-            // WordCloud
-            const freqs = @json($wordFrequenciesByLabel);
-            Object.entries(freqs).forEach(([lbl, f]) => {
-                WordCloud(document.getElementById('wc-' + lbl), {
-                    list: Object.entries(f),
-                    gridSize: 12,
-                    weightFactor: s => s * 1.5,
-                    backgroundColor: '#f8fafc',
-                    rotateRatio: 0.1,
-                    minSize: 14
+            const wordFreqByLabel = {!! json_encode($wordFrequenciesByLabel) !!};
+            const classes = {!! json_encode($classes) !!};
+            const precision = {!! json_encode($precision) !!};
+            const recall = {!! json_encode($recall) !!};
+            const f1 = {!! json_encode($f1) !!};
+
+            const classesUji = {!! json_encode($classesUji) !!};
+            const precisionUji = {!! json_encode($precisionUji) !!};
+            const recallUji = {!! json_encode($recallUji) !!};
+            const f1Uji = {!! json_encode($f1Uji) !!};
+
+            // Pie Chart Sentiment Distribution
+            const pieCtx = document.getElementById('sentimentPie');
+            if (pieCtx) {
+                new Chart(pieCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: dataSentLabels,
+                        datasets: [{
+                            data: dataSentValues,
+                            backgroundColor: ['#10B981', '#EF4444', '#3B82F6'],
+                            hoverOffset: 10
+                        }]
+                    },
+                    options: {
+                        responsive: true
+                    }
                 });
-            });
-
-            // Metrics Bar Chart
-            new Chart(document.getElementById('evalMetricsChart'), {
-                type: 'bar',
-                data: {
-                    labels: {!! json_encode($classes) !!},
-                    datasets: [{
-                            label: 'Precision',
-                            data: {!! json_encode($precision) !!},
-                            backgroundColor: 'rgba(59,130,246,0.7)'
-                        },
-                        {
-                            label: 'Recall',
-                            data: {!! json_encode($recall) !!},
-                            backgroundColor: 'rgba(16,185,129,0.7)'
-                        },
-                        {
-                            label: 'F1 Score',
-                            data: {!! json_encode($f1) !!},
-                            backgroundColor: 'rgba(239,68,68,0.7)'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            stepSize: 0.1
-                        }
-                    }
-                }
-            });
-            new Chart(document.getElementById('evalMetricsChart'), {
-                type: 'bar',
-                data: {
-                    labels: classes,
-                    datasets: [{
-                        label: 'Precision',
-                        data: precision,
-                        backgroundColor: 'rgba(59,130,246,0.7)'
-                    }, {
-                        label: 'Recall',
-                        data: recall,
-                        backgroundColor: 'rgba(16,185,129,0.7)'
-                    }, {
-                        label: 'F1 Score',
-                        data: f1,
-                        backgroundColor: 'rgba(239,68,68,0.7)'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            stepSize: 0.1
-                        }
-                    }
-                }
-            });
-        });
-
-        // Metrics Bar Chart
-        new Chart(document.getElementById('evalMetricsUjiChart'), {
-            type: 'bar',
-            data: {
-                labels: {!! json_encode($classesUji) !!},
-                datasets: [{
-                        label: 'Precision',
-                        data: {!! json_encode($precisionUji) !!},
-                        backgroundColor: 'rgba(59,130,246,0.7)'
-                    },
-                    {
-                        label: 'Recall',
-                        data: {!! json_encode($recallUji) !!},
-                        backgroundColor: 'rgba(16,185,129,0.7)'
-                    },
-                    {
-                        label: 'F1 Score',
-                        data: {!! json_encode($f1Uji) !!},
-                        backgroundColor: 'rgba(239,68,68,0.7)'
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        stepSize: 0.1
-                    }
-                }
             }
-        });
-        new Chart(document.getElementById('evalMetricsUjiChart'), {
-            type: 'bar',
-            data: {
-                labels: classesUji,
-                datasets: [{
-                    label: 'Precision',
-                    data: precisionUji,
-                    backgroundColor: 'rgba(59,130,246,0.7)'
-                }, {
-                    label: 'Recall',
-                    data: recallUji,
-                    backgroundColor: 'rgba(16,185,129,0.7)'
-                }, {
-                    label: 'F1 Score',
-                    data: f1Uji,
-                    backgroundColor: 'rgba(239,68,68,0.7)'
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        stepSize: 0.1
-                    }
+
+            // WordCloud per label
+            ['positive', 'negative', 'neutral'].forEach(lbl => {
+                const container = document.getElementById('wc-' + lbl);
+                if (!container) return;
+                const freqs = wordFreqByLabel[lbl] || {};
+                const list = Object.entries(freqs);
+                if (list.length) {
+                    WordCloud(container, {
+                        list: list,
+                        gridSize: 12,
+                        weightFactor: size => size * 1.5,
+                        backgroundColor: '#f8fafc',
+                        rotateRatio: 0.1,
+                        minSize: 14
+                    });
                 }
+            });
+
+            // Evaluation Metrics (training)
+            const evalCtx = document.getElementById('evalMetricsChart');
+            if (evalCtx) {
+                new Chart(evalCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: classes,
+                        datasets: [{
+                                label: 'Precision',
+                                data: precision,
+                                backgroundColor: 'rgba(59,130,246,0.7)'
+                            },
+                            {
+                                label: 'Recall',
+                                data: recall,
+                                backgroundColor: 'rgba(16,185,129,0.7)'
+                            },
+                            {
+                                label: 'F1 Score',
+                                data: f1,
+                                backgroundColor: 'rgba(239,68,68,0.7)'
+                            },
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 0.1
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Evaluation Metrics (uji)
+            const evalUjiCtx = document.getElementById('evalMetricsUjiChart');
+            if (evalUjiCtx) {
+                new Chart(evalUjiCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: classesUji,
+                        datasets: [{
+                                label: 'Precision',
+                                data: precisionUji,
+                                backgroundColor: 'rgba(59,130,246,0.7)'
+                            },
+                            {
+                                label: 'Recall',
+                                data: recallUji,
+                                backgroundColor: 'rgba(16,185,129,0.7)'
+                            },
+                            {
+                                label: 'F1 Score',
+                                data: f1Uji,
+                                backgroundColor: 'rgba(239,68,68,0.7)'
+                            },
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 0.1
+                                }
+                            }
+                        }
+                    }
+                });
             }
         });
     </script>

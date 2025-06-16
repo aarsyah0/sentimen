@@ -3,30 +3,50 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DataVizController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DataController;
+use App\Http\Controllers\TweetController;
+use App\Http\Controllers\SentimentController;
 
-// Root: redirect ke login jika tamu, atau ke viz.index jika sudah login
-// Root: selalu redirect ke viz.index
-// Root: selalu redirect ke /viz
-Route::redirect('/', 'viz');
+Route::get('/new', [DataController::class, 'form'])->name('upload.form'); // <-- tambahkan name di sini
+Route::post('/upload', [DataController::class, 'upload'])->name('upload.submit');
+Route::get('/data', [DataController::class, 'result'])->name('data.result');
+Route::get('/download', [DataController::class, 'download'])->name('data.download');
 
-// 2) Public: halaman visualisasi tanpa auth
-Route::get('viz', [DataVizController::class, 'index'])->name('viz.index');
+Route::get('/', [SentimentController::class, 'showDashboard'])->name('index');
+Route::get('/sentiment/upload', [SentimentController::class, 'showUploadForm'])->name('sentiment.upload');
+Route::post('/sentiment/upload', [SentimentController::class, 'handleUploadAndTrain'])->name('sentiment.upload.handle');
+Route::get('/sentiment/report', [SentimentController::class, 'showReport'])->name('sentiment.report');
+Route::get('/sentiment/infer', [SentimentController::class, 'showInferForm'])->name('sentiment.infer');
+Route::post('/sentiment/infer', [SentimentController::class, 'doInfer'])->name('sentiment.infer.do');
 
-// Guest-only: form & proses login
-Route::middleware('guest')->group(function () {
-    Route::get('login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('login', [AuthController::class, 'login'])->name('login.attempt');
-});
 
-// Authenticated-only: logout, dashboard, upload, dan viz
-Route::middleware('auth')->group(function () {
-    // Logout
-    Route::post('logout', [AuthController::class, 'logout'])->name('logout');
 
-    // Dashboard utama setelah login
-    Route::get('dashboard', [DataVizController::class, 'dashboard'])->name('dashboard');
+// Route untuk tampilan form
+Route::get('/scrap-tweets', [TweetController::class, 'index'])->name('scrap.tweets.form');
 
-    // Upload data
-    Route::get('upload', [DataVizController::class, 'showUploadForm'])->name('upload.form');
-    Route::post('upload', [DataVizController::class, 'uploadData'])->name('upload.data');
-});
+// Route untuk memproses POST scraping
+Route::post('/scrap-tweets', [TweetController::class, 'scrape'])->name('scrap.tweets');
+
+Route::get('/sentiment/dashboard', [SentimentController::class, 'showDashboard'])
+    ->name('sentiment.dashboard');
+// Route::redirect('/', 'viz');
+
+
+// Route::get('viz', [DataVizController::class, 'index'])->name('viz.index');
+
+
+// Route::middleware('guest')->group(function () {
+//     Route::get('login', [AuthController::class, 'showLoginForm'])->name('login');
+//     Route::post('login', [AuthController::class, 'login'])->name('login.attempt');
+// });
+
+
+// Route::middleware('auth')->group(function () {
+
+//     Route::post('logout', [AuthController::class, 'logout'])->name('logout');
+
+//     Route::get('dashboard', [DataVizController::class, 'dashboard'])->name('dashboard');
+
+//     Route::get('upload', [DataVizController::class, 'showUploadForm'])->name('upload.form');
+//     Route::post('upload', [DataVizController::class, 'uploadData'])->name('upload.data');
+// });

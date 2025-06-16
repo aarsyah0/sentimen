@@ -34,5 +34,10 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'python' => [
+    'path' => '/Users/sutanarsyahnugraha/Documents/Joki/sentiment/venv/bin/python',
+    'script' => base_path('python/sentiment_service.py'),
+    'storage_results' => storage_path('app/data_processed/results'),
+],
 
 ];
